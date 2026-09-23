@@ -1,0 +1,59 @@
+/* ==========================================================================
+   Custom Styles - Chroma 62050P Control Panel
+   ========================================================================== */
+
+/* Tùy chỉnh thanh cuộn cho màn hình console log */
+#consoleLog::-webkit-scrollbar {
+    width: 6px;
+}
+
+#consoleLog::-webkit-scrollbar-track {
+    background: #111827; /* gray-900 */
+    border-radius: 4px;
+}
+
+#consoleLog::-webkit-scrollbar-thumb {
+    background: #374151; /* gray-700 */
+    border-radius: 4px;
+}
+
+#consoleLog::-webkit-scrollbar-thumb:hover {
+    background: #4b5563; /* gray-600 */
+}
+
+/* Đèn LED chỉ báo trạng thái */
+.status-indicator {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+.status-indicator.connected {
+    background-color: #22c55e;
+    box-shadow: 0 0 8px #22c55e;
+}
+
+.status-indicator.disconnected {
+    background-color: #9ca3af;
+}
+
+.status-indicator.error {
+    background-color: #ef4444;
+    box-shadow: 0 0 8px #ef4444;
+}
+
+/* Trạng thái ngõ ra (Output active glow) */
+.output-active-on {
+    border-color: #10b981 !important;
+    background-color: #059669 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(16, 185, 129, 0.5);
+}
+
+.output-active-off {
+    border-color: #ef4444 !important;
+    background-color: #dc2626 !important;
+    color: #ffffff !important;
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.4);
+}

@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chroma 62050P Control Panel</title>
+    <!-- Sử dụng Tailwind CSS qua CDN để giao diện đẹp mắt nhanh chóng -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 min-h-screen flex flex-col justify-between">
+
+    <!-- Header -->
+    <header class="bg-blue-600 text-white shadow-md py-4 px-6">
+        <h1 class="text-2xl font-bold">Web-based Power Supply Control System</h1>
+        <p class="text-sm text-blue-200">Thiết bị: Chroma 62050P-100-100 (Localhost)</p>
+    </header>
+
+    <!-- Main Content -->
+    <main class="container mx-auto p-6 max-w-4xl flex-grow">
+        
+        <!-- Trạng thái thiết bị & Kết nối -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-semibold text-gray-700">Trạng thái Phần cứng</h2>
+                <button onclick="checkDevice()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium transition">
+                    Kiểm tra kết nối (*IDN?)
+                </button>
+            </div>
+            <div id="deviceStatus" class="bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-600 font-mono">
+                Chưa kết nối hoặc chưa kiểm tra thiết bị.
+            </div>
+        </div>
+
+        <!-- Bảng điều khiển thông số -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            
+            <!-- Cài đặt Điện áp -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4">Cài đặt Điện áp (Voltage)</h2>
+                <div class="flex space-x-2">
+                    <input type="number" id="voltageInput" step="0.1" placeholder="Nhập Volt (vd: 12.5)" 
+                           class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="setVoltage()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-medium transition">
+                        Gửi Volt
+                    </button>
+                </div>
+            </div>
+
+            <!-- Cài đặt Dòng điện -->
+            <div class="bg-white rounded-lg shadow-md p-6">
+                <h2 class="text-lg font-semibold text-gray-700 mb-4">Giới hạn Dòng điện (Current)</h2>
+                <div class="flex space-x-2">
+                    <input type="number" id="currentInput" step="0.1" placeholder="Nhập Amp (vd: 2.0)" 
+                           class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    <button onclick="setCurrent()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-medium transition">
+                        Gửi Amp
+                    </button>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Điều khiển Ngõ ra (Output Switch) -->
+        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+            <h2 class="text-lg font-semibold text-gray-700 mb-4">Điều khiển Trạng thái Ngõ ra (Output)</h2>
+            <div class="flex space-x-4">
+                <button onclick="controlOutput('ON')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-bold text-lg shadow transition">
+                    BẬT NGUỒN (ON)
+                </button>
+                <button onclick="controlOutput('OFF')" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-bold text-lg shadow transition">
+                    TẮT NGUỒN (OFF)
+                </button>
+            </div>
+        </div>
+
+        <!-- Log hệ thống -->
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <h2 class="text-lg font-semibold text-gray-700 mb-2">Nhật ký Phản hồi (Console Log)</h2>
+            <div id="consoleLog" class="bg-black text-green-400 font-mono text-xs p-3 rounded h-32 overflow-y-auto">
+                [System] Sẵn sàng nhận lệnh...
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-gray-200 text-center py-4 text-sm text-gray-600">
+        Web Power Supply Control System &copy; 2026
+    </footer>
+
+    <!-- JavaScript xử lý gọi API -->
+    <script>
+        const API_BASE = "http://127.0.0.1:8000/api";
+
+        function logMessage(msg, isError = false) {
+            const consoleBox = document.getElementById("consoleLog");
+            const time = new Date().toLocaleTimeString();
+            const color = isError ? "text-red-400" : "text-green-400";
+            consoleBox.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
+            consoleBox.scrollTop = consoleBox.scrollHeight;
+        }
+
+        async function checkDevice() {
+            try {
+                logMessage("Đang kiểm tra kết nối thiết bị (*IDN?)...");
+                let res = await fetch(`${API_BASE}/idn`);
+                let data = await res.json();
+                if (res.ok) {
+                    document.getElementById("deviceStatus").innerText = `Đã kết nối: ${data.device_id}`;
+                    logMessage(`Thành công: ${data.device_id}`);
+                } else {
+                    throw new Error(data.detail || "Lỗi không xác định");
+                }
+            } catch (err) {
+                logMessage(`Lỗi kết nối: ${err.message}`, true);
+                document.getElementById("deviceStatus").innerText = "Lỗi kết nối phần cứng!";
+            }
+        }
+
+        async function setVoltage() {
+            let val = parseFloat(document.getElementById("voltageInput").value);
+            if (isNaN(val)) {
+                alert("Vui lòng nhập giá trị điện áp hợp lệ!");
+                return;
+            }
+            try {
+                logMessage(`Đang gửi lệnh cài đặt điện áp: ${val}V...`);
+                let res = await fetch(`${API_BASE}/voltage`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ voltage: val })
+                });
+                let data = await res.json();
+                if (res.ok) {
+                    logMessage(`Cài đặt điện áp thành công: ${data.voltage}V`);
+                } else {
+                    throw new Error(data.detail);
+                }
+            } catch (err) {
+                logMessage(`Lỗi đặt điện áp: ${err.message}`, true);
+            }
+        }
+
+        async function setCurrent() {
+            let val = parseFloat(document.getElementById("currentInput").value);
+            if (isNaN(val)) {
+                alert("Vui lòng nhập giới hạn dòng điện hợp lệ!");
+                return;
+            }
+            try {
+                logMessage(`Đang gửi lệnh cài đặt dòng điện: ${val}A...`);
+                let res = await fetch(`${API_BASE}/current`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ current: val })
+                });
+                let data = await res.json();
+                if (res.ok) {
+                    logMessage(`Cài đặt dòng điện thành công: ${data.current}A`);
+                } else {
+                    throw new Error(data.detail);
+                }
+            } catch (err) {
+                logMessage(`Lỗi đặt dòng điện: ${err.message}`, true);
+            }
+        }
+
+        async function controlOutput(state) {
+            try {
+                logMessage(`Đang chuyển trạng thái ngõ ra: ${state}...`);
+                let res = await fetch(`${API_BASE}/output`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ state: state })
+                });
+                let data = await res.json();
+                if (res.ok) {
+                    logMessage(`Ngõ ra đã được: ${data.output}`);
+                } else {
+                    throw new Error(data.detail);
+                }
+            } catch (err) {
+                logMessage(`Lỗi điều khiển ngõ ra: ${err.message}`, true);
+            }
+        }
+    </script>
+</body>
+</html>
