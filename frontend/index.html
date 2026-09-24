@@ -3,186 +3,576 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chroma 62050P Control Panel</title>
-    <!-- Sử dụng Tailwind CSS qua CDN để giao diện đẹp mắt nhanh chóng -->
+    <title>Chroma 62050P-100-100 Control & Telemetry Panel</title>
+    <!-- Tailwind CSS qua CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        .font-mono-digits { font-family: 'JetBrains Mono', monospace; }
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.4; transform: scale(0.85); }
+        }
+        .animate-live-dot {
+            animation: pulse-dot 1.5s infinite ease-in-out;
+        }
+    </style>
 </head>
-<body class="bg-gray-100 min-h-screen flex flex-col justify-between">
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between">
 
-    <!-- Header -->
-    <header class="bg-blue-600 text-white shadow-md py-4 px-6">
-        <h1 class="text-2xl font-bold">Web-based Power Supply Control System</h1>
-        <p class="text-sm text-blue-200">Thiết bị: Chroma 62050P-100-100 (Localhost)</p>
+    <!-- Top Navigation Bar -->
+    <header class="bg-slate-800/90 backdrop-blur border-b border-slate-700/60 sticky top-0 z-50 px-6 py-3 shadow-lg">
+        <div class="max-w-7xl mx-auto flex flex-wrap items-center justify-between gap-4">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-lg bg-blue-600 flex items-center justify-center font-bold text-xl shadow-md shadow-blue-500/30 text-white">
+                    ⚡
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-white tracking-tight flex items-center gap-2">
+                        Chroma 62050P-100-100
+                        <span class="text-xs px-2 py-0.5 rounded font-mono bg-blue-950/80 text-blue-400 border border-blue-800">SCPI v03.00</span>
+                    </h1>
+                    <p class="text-xs text-slate-400">Hệ thống Điều khiển & Đo lường Thời gian thực (VISA USB-TMC)</p>
+                </div>
+            </div>
+
+            <!-- Top Status Badges -->
+            <div class="flex items-center space-x-3 text-xs">
+                <!-- Hardware connection status -->
+                <div id="badgeConnection" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400">
+                    <span id="dotConnection" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span id="textConnection">Đang kiểm tra...</span>
+                </div>
+
+                <!-- Output State Badge -->
+                <div id="badgeOutput" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-semibold uppercase">
+                    <span id="dotOutput" class="w-2 h-2 rounded-full bg-slate-500"></span>
+                    <span id="textOutput">OUTPUT: OFF</span>
+                </div>
+
+                <button onclick="checkDeviceConnection()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 active:scale-95 text-slate-200 rounded font-medium transition shadow-sm" title="Kiểm tra phản hồi *IDN?">
+                    Kiểm tra *IDN?
+                </button>
+                <button onclick="checkSystemError()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 active:scale-95 text-amber-300 rounded font-medium transition shadow-sm" title="Kiểm tra thông báo lỗi phần cứng (SYST:ERR?)">
+                    Lỗi SYST:ERR?
+                </button>
+                <button onclick="submitClearStatus()" class="px-3 py-1.5 bg-slate-700 hover:bg-slate-600 active:scale-95 text-slate-300 rounded font-medium transition shadow-sm" title="Xóa cờ trạng thái lỗi (*CLS)">
+                    Xóa lỗi *CLS
+                </button>
+            </div>
+        </div>
     </header>
 
-    <!-- Main Content -->
-    <main class="container mx-auto p-6 max-w-4xl flex-grow">
-        
-        <!-- Trạng thái thiết bị & Kết nối -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-semibold text-gray-700">Trạng thái Phần cứng</h2>
-                <button onclick="checkDevice()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded font-medium transition">
-                    Kiểm tra kết nối (*IDN?)
-                </button>
-            </div>
-            <div id="deviceStatus" class="bg-gray-50 border border-gray-200 rounded p-3 text-sm text-gray-600 font-mono">
-                Chưa kết nối hoặc chưa kiểm tra thiết bị.
-            </div>
-        </div>
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto w-full p-4 md:p-6 space-y-6 flex-grow">
 
-        <!-- Bảng điều khiển thông số -->
-        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            
-            <!-- Cài đặt Điện áp -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4">Cài đặt Điện áp (Voltage)</h2>
-                <div class="flex space-x-2">
-                    <input type="number" id="voltageInput" step="0.1" placeholder="Nhập Volt (vd: 12.5)" 
-                           class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="setVoltage()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-medium transition">
-                        Gửi Volt
+        <!-- 1. Real-time Telemetry Gauges (Màn hình Đo lường Thời gian thực) -->
+        <section class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 shadow-xl">
+            <div class="flex flex-wrap items-center justify-between pb-4 mb-4 border-b border-slate-700/60 gap-3">
+                <div class="flex items-center space-x-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-live-dot"></span>
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300">Thông số Đo Thực tế (Real-time Telemetry)</h2>
+                </div>
+
+                <!-- Polling Controls -->
+                <div class="flex items-center space-x-3 text-xs text-slate-400">
+                    <label class="flex items-center space-x-1.5 cursor-pointer select-none">
+                        <input type="checkbox" id="autoPollCheck" checked onchange="toggleAutoPoll(this.checked)" class="rounded bg-slate-700 border-slate-600 text-blue-500 focus:ring-0">
+                        <span>Tự động đọc (1s)</span>
+                    </label>
+                    <button onclick="fetchTelemetry(true)" class="p-1 px-2.5 rounded bg-slate-700/70 hover:bg-slate-700 hover:text-white transition">
+                        ↻ Làm mới
                     </button>
                 </div>
             </div>
 
-            <!-- Cài đặt Dòng điện -->
-            <div class="bg-white rounded-lg shadow-md p-6">
-                <h2 class="text-lg font-semibold text-gray-700 mb-4">Giới hạn Dòng điện (Current)</h2>
-                <div class="flex space-x-2">
-                    <input type="number" id="currentInput" step="0.1" placeholder="Nhập Amp (vd: 2.0)" 
-                           class="flex-grow border border-gray-300 rounded px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                    <button onclick="setCurrent()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded font-medium transition">
-                        Gửi Amp
-                    </button>
+            <!-- Telemetry Digital Meters Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                
+                <!-- Voltage Meter -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-900/90 rounded-lg p-5 border border-cyan-900/40 relative overflow-hidden shadow-inner">
+                    <div class="flex justify-between items-center text-xs font-semibold uppercase tracking-wider text-cyan-400 mb-1">
+                        <span>Điện áp ngõ ra (Voltage)</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-cyan-950 text-cyan-300 border border-cyan-800/60">MEAS:VOLT?</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2 my-2">
+                        <span id="dispVoltage" class="font-mono-digits text-4xl lg:text-5xl font-bold text-cyan-300 tracking-tight">0.000</span>
+                        <span class="text-xl font-bold text-cyan-500">V</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-400 border-t border-slate-800/80 pt-2 mt-2">
+                        <span>Cài đặt (Set):</span>
+                        <span id="dispSetVoltage" class="font-mono-digits font-semibold text-slate-200">-- V</span>
+                    </div>
                 </div>
+
+                <!-- Current Meter -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-900/90 rounded-lg p-5 border border-amber-900/40 relative overflow-hidden shadow-inner">
+                    <div class="flex justify-between items-center text-xs font-semibold uppercase tracking-wider text-amber-400 mb-1">
+                        <span>Dòng điện thực tế (Current)</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-950 text-amber-300 border border-amber-800/60">MEAS:CURR?</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2 my-2">
+                        <span id="dispCurrent" class="font-mono-digits text-4xl lg:text-5xl font-bold text-amber-300 tracking-tight">0.000</span>
+                        <span class="text-xl font-bold text-amber-500">A</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-400 border-t border-slate-800/80 pt-2 mt-2">
+                        <span>Giới hạn (Limit):</span>
+                        <span id="dispSetCurrent" class="font-mono-digits font-semibold text-slate-200">-- A</span>
+                    </div>
+                </div>
+
+                <!-- Power Meter -->
+                <div class="bg-gradient-to-br from-slate-900 to-slate-900/90 rounded-lg p-5 border border-purple-900/40 relative overflow-hidden shadow-inner">
+                    <div class="flex justify-between items-center text-xs font-semibold uppercase tracking-wider text-purple-400 mb-1">
+                        <span>Công suất tức thời (Power)</span>
+                        <span class="text-[10px] px-1.5 py-0.5 rounded bg-purple-950 text-purple-300 border border-purple-800/60">MEAS:POW?</span>
+                    </div>
+                    <div class="flex items-baseline space-x-2 my-2">
+                        <span id="dispPower" class="font-mono-digits text-4xl lg:text-5xl font-bold text-purple-300 tracking-tight">0.000</span>
+                        <span class="text-xl font-bold text-purple-500">W</span>
+                    </div>
+                    <div class="flex justify-between items-center text-xs text-slate-400 border-t border-slate-800/80 pt-2 mt-2">
+                        <span>Công suất cực đại:</span>
+                        <span class="font-mono-digits font-semibold text-slate-200">5000 W</span>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- 2. Control Grid: Cài đặt Thông số & Điều khiển Ngõ ra -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+
+            <!-- Cài đặt Điện áp & Dòng điện (Left: 8 cols) -->
+            <div class="lg:col-span-8 space-y-6">
+                
+                <!-- Voltage Setting Card -->
+                <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 shadow-lg">
+                    <div class="flex justify-between items-center mb-3">
+                        <label for="voltageInput" class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <span>⚡</span> Cài đặt Điện áp (Voltage Setpoint)
+                        </label>
+                        <span class="text-xs text-slate-400 font-mono">Giới hạn: 0.0V - 100.0V</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-grow">
+                            <input type="number" id="voltageInput" min="0" max="100" step="0.1" placeholder="Nhập Volt (vd: 12.0)"
+                                   class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white font-mono-digits focus:outline-none focus:ring-2 focus:ring-cyan-500 focus:border-transparent text-lg">
+                            <span class="absolute right-4 top-3 text-slate-400 text-sm font-bold">V</span>
+                        </div>
+                        <button onclick="submitVoltage()" class="bg-cyan-600 hover:bg-cyan-500 active:scale-95 text-white px-6 py-2.5 rounded-lg font-semibold transition shadow-md shadow-cyan-600/20 whitespace-nowrap">
+                            Gửi Cài đặt Volt
+                        </button>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div class="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-700/50 text-xs">
+                        <span class="text-slate-400">Phím tắt nhanh:</span>
+                        <button onclick="setVoltagePreset(5)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-cyan-300 rounded border border-slate-600 font-mono transition">5.0V</button>
+                        <button onclick="setVoltagePreset(12)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-cyan-300 rounded border border-slate-600 font-mono transition">12.0V</button>
+                        <button onclick="setVoltagePreset(24)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-cyan-300 rounded border border-slate-600 font-mono transition">24.0V</button>
+                        <button onclick="setVoltagePreset(48)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-cyan-300 rounded border border-slate-600 font-mono transition">48.0V</button>
+                        <button onclick="setVoltagePreset(60)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-cyan-300 rounded border border-slate-600 font-mono transition">60.0V</button>
+                    </div>
+                </div>
+
+                <!-- Current Limit Setting Card -->
+                <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 shadow-lg">
+                    <div class="flex justify-between items-center mb-3">
+                        <label for="currentInput" class="text-sm font-semibold text-slate-200 flex items-center gap-2">
+                            <span>⚙️</span> Giới hạn Dòng điện (Current Limit)
+                        </label>
+                        <span class="text-xs text-slate-400 font-mono">Giới hạn: 0.0A - 100.0A</span>
+                    </div>
+                    <div class="flex flex-col sm:flex-row gap-3">
+                        <div class="relative flex-grow">
+                            <input type="number" id="currentInput" min="0" max="100" step="0.1" placeholder="Nhập Amp (vd: 2.0)"
+                                   class="w-full bg-slate-900 border border-slate-600 rounded-lg px-4 py-2.5 text-white font-mono-digits focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent text-lg">
+                            <span class="absolute right-4 top-3 text-slate-400 text-sm font-bold">A</span>
+                        </div>
+                        <button onclick="submitCurrent()" class="bg-amber-600 hover:bg-amber-500 active:scale-95 text-white px-6 py-2.5 rounded-lg font-semibold transition shadow-md shadow-amber-600/20 whitespace-nowrap">
+                            Gửi Cài đặt Amp
+                        </button>
+                    </div>
+
+                    <!-- Quick Preset Buttons -->
+                    <div class="flex flex-wrap items-center gap-2 mt-3 pt-3 border-t border-slate-700/50 text-xs">
+                        <span class="text-slate-400">Phím tắt nhanh:</span>
+                        <button onclick="setCurrentPreset(1)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-amber-300 rounded border border-slate-600 font-mono transition">1.0A</button>
+                        <button onclick="setCurrentPreset(2)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-amber-300 rounded border border-slate-600 font-mono transition">2.0A</button>
+                        <button onclick="setCurrentPreset(5)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-amber-300 rounded border border-slate-600 font-mono transition">5.0A</button>
+                        <button onclick="setCurrentPreset(10)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-amber-300 rounded border border-slate-600 font-mono transition">10.0A</button>
+                        <button onclick="setCurrentPreset(20)" class="px-2.5 py-1 bg-slate-700/70 hover:bg-slate-700 text-amber-300 rounded border border-slate-600 font-mono transition">20.0A</button>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Output Control & Safety (Right: 4 cols) -->
+            <div class="lg:col-span-4 space-y-6">
+                
+                <div class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 shadow-lg flex flex-col justify-between h-full">
+                    <div>
+                        <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300 pb-3 mb-4 border-b border-slate-700/60">
+                            Điều khiển Đóng/Cắt Ngõ ra
+                        </h2>
+
+                        <!-- Action Buttons -->
+                        <div class="space-y-3">
+                            <button onclick="submitOutput('ON')" class="w-full bg-emerald-600 hover:bg-emerald-500 active:scale-98 text-white py-3.5 px-4 rounded-xl font-bold text-base shadow-lg shadow-emerald-600/30 transition flex items-center justify-center gap-2">
+                                <span class="text-xl">⚡</span> BẬT NGUỒN (OUTPUT ON)
+                            </button>
+
+                            <button onclick="submitOutput('OFF')" class="w-full bg-slate-700 hover:bg-slate-600 active:scale-98 text-slate-200 py-3.5 px-4 rounded-xl font-bold text-base shadow-md transition flex items-center justify-center gap-2">
+                                <span class="text-xl">⏹</span> TẮT NGUỒN (OUTPUT OFF)
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Emergency Stop Button -->
+                    <div class="mt-6 pt-4 border-t border-slate-700/60">
+                        <button onclick="submitEmergencyStop()" class="w-full bg-rose-600 hover:bg-rose-500 active:scale-95 text-white py-4 px-4 rounded-xl font-extrabold text-base shadow-xl shadow-rose-600/40 transition flex items-center justify-center gap-2 border-2 border-rose-400/30 animate-pulse">
+                            <span class="text-xl">🛑</span> DỪNG KHẨN CẤP (EMERGENCY)
+                        </button>
+                        <p class="text-[11px] text-slate-400 text-center mt-2">
+                            Ngắt nguồn ngay lập tức và gửi lệnh xóa lỗi *CLS tới máy nguồn.
+                        </p>
+                    </div>
+                </div>
+
             </div>
 
         </div>
 
-        <!-- Điều khiển Ngõ ra (Output Switch) -->
-        <div class="bg-white rounded-lg shadow-md p-6 mb-6">
-            <h2 class="text-lg font-semibold text-gray-700 mb-4">Điều khiển Trạng thái Ngõ ra (Output)</h2>
-            <div class="flex space-x-4">
-                <button onclick="controlOutput('ON')" class="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white py-3 rounded-lg font-bold text-lg shadow transition">
-                    BẬT NGUỒN (ON)
+        <!-- 3. System Console & Activity Log -->
+        <section class="bg-slate-800/80 border border-slate-700/80 rounded-xl p-5 shadow-lg">
+            <div class="flex items-center justify-between pb-3 mb-3 border-b border-slate-700/60">
+                <div class="flex items-center space-x-2">
+                    <span class="text-slate-400 font-mono text-sm">❯_</span>
+                    <h2 class="text-sm font-semibold uppercase tracking-wider text-slate-300">Nhật ký Hoạt động (Console Log)</h2>
+                </div>
+                <button onclick="clearConsoleLog()" class="text-xs text-slate-400 hover:text-slate-200 bg-slate-700/60 hover:bg-slate-700 px-2.5 py-1 rounded transition">
+                    Xóa log
                 </button>
-                <button onclick="controlOutput('OFF')" class="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-bold text-lg shadow transition">
-                    TẮT NGUỒN (OFF)
-                </button>
             </div>
-        </div>
-
-        <!-- Log hệ thống -->
-        <div class="bg-white rounded-lg shadow-md p-6">
-            <h2 class="text-lg font-semibold text-gray-700 mb-2">Nhật ký Phản hồi (Console Log)</h2>
-            <div id="consoleLog" class="bg-black text-green-400 font-mono text-xs p-3 rounded h-32 overflow-y-auto">
-                [System] Sẵn sàng nhận lệnh...
+            <div id="consoleLog" class="bg-slate-950 border border-slate-800 rounded-lg p-3 font-mono text-xs h-36 overflow-y-auto space-y-1 scroll-smooth">
+                <div class="text-slate-500">[System] Khởi tạo giao diện điều khiển Chroma 62050P-100-100...</div>
             </div>
-        </div>
+        </section>
 
     </main>
 
     <!-- Footer -->
-    <footer class="bg-gray-200 text-center py-4 text-sm text-gray-600">
-        Web Power Supply Control System &copy; 2026
+    <footer class="bg-slate-950/80 border-t border-slate-800/80 py-3 px-6 text-center text-xs text-slate-500">
+        Chroma 62050P-100-100 Power Supply Control System &copy; 2026 &bull; FastAPI Backend &bull; PyVISA USB-TMC
     </footer>
 
-    <!-- JavaScript xử lý gọi API -->
+    <!-- Frontend Application Logic -->
     <script>
         const API_BASE = "http://127.0.0.1:8000/api";
+        let autoPollTimer = null;
+        let isPolling = false;
 
-        function logMessage(msg, isError = false) {
+        function logMessage(msg, type = "info") {
             const consoleBox = document.getElementById("consoleLog");
             const time = new Date().toLocaleTimeString();
-            const color = isError ? "text-red-400" : "text-green-400";
-            consoleBox.innerHTML += `<div class="${color}">[${time}] ${msg}</div>`;
+            let color = "text-slate-300";
+            let prefix = "[INFO]";
+
+            if (type === "success") {
+                color = "text-emerald-400";
+                prefix = "[SUCCESS]";
+            } else if (type === "error") {
+                color = "text-rose-400 font-semibold";
+                prefix = "[ERROR]";
+            } else if (type === "warn") {
+                color = "text-amber-400";
+                prefix = "[WARN]";
+            }
+
+            const line = document.createElement("div");
+            line.className = color;
+            line.textContent = `[${time}] ${prefix} ${msg}`;
+            consoleBox.appendChild(line);
             consoleBox.scrollTop = consoleBox.scrollHeight;
         }
 
-        async function checkDevice() {
-            try {
-                logMessage("Đang kiểm tra kết nối thiết bị (*IDN?)...");
-                let res = await fetch(`${API_BASE}/idn`);
-                let data = await res.json();
-                if (res.ok) {
-                    document.getElementById("deviceStatus").innerText = `Đã kết nối: ${data.device_id}`;
-                    logMessage(`Thành công: ${data.device_id}`);
-                } else {
-                    throw new Error(data.detail || "Lỗi không xác định");
-                }
-            } catch (err) {
-                logMessage(`Lỗi kết nối: ${err.message}`, true);
-                document.getElementById("deviceStatus").innerText = "Lỗi kết nối phần cứng!";
+        function clearConsoleLog() {
+            const consoleBox = document.getElementById("consoleLog");
+            consoleBox.innerHTML = `<div class="text-slate-500">[${new Date().toLocaleTimeString()}] [System] Đã xóa nhật ký.</div>`;
+        }
+
+        // Cập nhật trạng thái kết nối phần cứng lên giao diện
+        function updateConnectionUI(connected, deviceId = "") {
+            const dot = document.getElementById("dotConnection");
+            const text = document.getElementById("textConnection");
+            const badge = document.getElementById("badgeConnection");
+
+            if (connected) {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400";
+                text.innerText = deviceId ? `Online: ${deviceId.split(',')[1] || '62050P'}` : "Online";
+                badge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-950/40 border border-emerald-800/80 text-emerald-300";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-rose-500";
+                text.innerText = "Mất kết nối";
+                badge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-rose-950/40 border border-rose-800/80 text-rose-300";
             }
         }
 
-        async function setVoltage() {
-            let val = parseFloat(document.getElementById("voltageInput").value);
-            if (isNaN(val)) {
-                alert("Vui lòng nhập giá trị điện áp hợp lệ!");
+        // Cập nhật trạng thái Output lên giao diện
+        function updateOutputUI(state) {
+            const dot = document.getElementById("dotOutput");
+            const text = document.getElementById("textOutput");
+            const badge = document.getElementById("badgeOutput");
+
+            if (state === "ON") {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 shadow-md shadow-emerald-400 animate-pulse";
+                text.innerText = "OUTPUT: ON";
+                badge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-emerald-900/50 border border-emerald-600 text-emerald-300 font-bold uppercase shadow-sm";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-slate-500";
+                text.innerText = "OUTPUT: OFF";
+                badge.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-full bg-slate-800 border border-slate-700 text-slate-400 font-semibold uppercase";
+            }
+        }
+
+        // Đọc dữ liệu Telemetry thời gian thực từ API
+        async function fetchTelemetry(logSuccess = false) {
+            if (isPolling) return;
+            isPolling = true;
+
+            try {
+                const res = await fetch(`${API_BASE}/telemetry`);
+                if (!res.ok) {
+                    const errData = await res.json().catch(() => ({}));
+                    throw new Error(errData.detail || `HTTP ${res.status}`);
+                }
+                const result = await res.json();
+                const d = result.data;
+
+                // Cập nhật đồng hồ đo
+                document.getElementById("dispVoltage").innerText = d.voltage_measured.toFixed(3);
+                document.getElementById("dispCurrent").innerText = d.current_measured.toFixed(3);
+                document.getElementById("dispPower").innerText = d.power_measured.toFixed(3);
+
+                // Cập nhật thông số đang cài đặt
+                document.getElementById("dispSetVoltage").innerText = `${d.voltage_set.toFixed(2)} V`;
+                document.getElementById("dispSetCurrent").innerText = `${d.current_set.toFixed(2)} A`;
+
+                // Cập nhật Output UI
+                updateOutputUI(d.output_state);
+                updateConnectionUI(result.connected);
+
+                if (logSuccess) {
+                    logMessage(`Đọc dữ liệu: ${d.voltage_measured}V | ${d.current_measured}A | ${d.power_measured}W | Output: ${d.output_state}`, "info");
+                }
+            } catch (err) {
+                updateConnectionUI(false);
+                if (logSuccess) {
+                    logMessage(`Lỗi đọc thông số đo: ${err.message}`, "error");
+                }
+            } finally {
+                isPolling = false;
+            }
+        }
+
+        // Kiểm tra nhận diện thiết bị (*IDN?)
+        async function checkDeviceConnection() {
+            try {
+                logMessage("Đang kiểm tra kết nối thiết bị (*IDN?)...");
+                const res = await fetch(`${API_BASE}/idn`);
+                const data = await res.json();
+                if (res.ok) {
+                    updateConnectionUI(true, data.device_id);
+                    logMessage(`Nhận diện thiết bị: ${data.device_id}`, "success");
+                    fetchTelemetry(true);
+                } else {
+                    throw new Error(data.detail || "Không nhận diện được thiết bị");
+                }
+            } catch (err) {
+                updateConnectionUI(false);
+                logMessage(`Lỗi kết nối: ${err.message}`, "error");
+            }
+        }
+
+        async function checkSystemError() {
+            try {
+                logMessage("Đang kiểm tra lỗi phần cứng (SYST:ERR?)...");
+                const res = await fetch(`${API_BASE}/error`);
+                const data = await res.json();
+                if (res.ok) {
+                    if (data.error.startsWith("0")) {
+                        logMessage(`Phần cứng không có lỗi: ${data.error}`, "success");
+                    } else {
+                        logMessage(`Thông báo từ máy nguồn: ${data.error}`, "warn");
+                    }
+                } else {
+                    throw new Error(data.detail || "Lỗi đọc trạng thái");
+                }
+            } catch (err) {
+                logMessage(`Lỗi đọc SYST:ERR: ${err.message}`, "error");
+            }
+        }
+
+        async function submitClearStatus() {
+            try {
+                logMessage("Đang gửi lệnh xóa trạng thái lỗi (*CLS)...");
+                const res = await fetch(`${API_BASE}/clear`, { method: "POST" });
+                const data = await res.json();
+                if (res.ok) {
+                    logMessage("Đã gửi lệnh xóa cờ lỗi (*CLS) thành công.", "success");
+                } else {
+                    throw new Error(data.detail || "Lỗi xóa cờ");
+                }
+            } catch (err) {
+                logMessage(`Lỗi xóa cờ: ${err.message}`, "error");
+            }
+        }
+
+        // Cài đặt Điện áp
+        async function submitVoltage() {
+            const input = document.getElementById("voltageInput");
+            const val = parseFloat(input.value);
+
+            if (isNaN(val) || val < 0 || val > 100) {
+                alert("Vui lòng nhập giá trị điện áp hợp lệ từ 0V đến 100V!");
                 return;
             }
+
             try {
-                logMessage(`Đang gửi lệnh cài đặt điện áp: ${val}V...`);
-                let res = await fetch(`${API_BASE}/voltage`, {
+                logMessage(`Đang gửi lệnh cài đặt điện áp: ${val} V...`);
+                const res = await fetch(`${API_BASE}/voltage`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ voltage: val })
                 });
-                let data = await res.json();
+                const data = await res.json();
                 if (res.ok) {
-                    logMessage(`Cài đặt điện áp thành công: ${data.voltage}V`);
+                    const vSet = (data.voltage_set !== undefined) ? Number(data.voltage_set) : Number(data.voltage ?? val);
+                    const vMeas = (data.voltage_measured !== undefined) ? Number(data.voltage_measured) : 0;
+                    logMessage(`Cài đặt điện áp thành công! Máy xác nhận: ${vSet.toFixed(3)} V (Đo thực tế: ${vMeas.toFixed(3)} V)`, "success");
+                    document.getElementById("dispSetVoltage").innerText = `${vSet.toFixed(2)} V`;
+                    document.getElementById("dispVoltage").innerText = vMeas.toFixed(3);
+                    setTimeout(() => fetchTelemetry(false), 200);
                 } else {
-                    throw new Error(data.detail);
+                    throw new Error(data.detail || "Lỗi cài đặt");
                 }
             } catch (err) {
-                logMessage(`Lỗi đặt điện áp: ${err.message}`, true);
+                logMessage(`Lỗi đặt điện áp: ${err.message}`, "error");
             }
         }
 
-        async function setCurrent() {
-            let val = parseFloat(document.getElementById("currentInput").value);
-            if (isNaN(val)) {
-                alert("Vui lòng nhập giới hạn dòng điện hợp lệ!");
+        function setVoltagePreset(val) {
+            document.getElementById("voltageInput").value = val;
+            submitVoltage();
+        }
+
+        // Cài đặt Giới hạn Dòng điện
+        async function submitCurrent() {
+            const input = document.getElementById("currentInput");
+            const val = parseFloat(input.value);
+
+            if (isNaN(val) || val < 0 || val > 100) {
+                alert("Vui lòng nhập giới hạn dòng điện hợp lệ từ 0A đến 100A!");
                 return;
             }
+
             try {
-                logMessage(`Đang gửi lệnh cài đặt dòng điện: ${val}A...`);
-                let res = await fetch(`${API_BASE}/current`, {
+                logMessage(`Đang gửi lệnh cài đặt dòng điện: ${val} A...`);
+                const res = await fetch(`${API_BASE}/current`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ current: val })
                 });
-                let data = await res.json();
+                const data = await res.json();
                 if (res.ok) {
-                    logMessage(`Cài đặt dòng điện thành công: ${data.current}A`);
+                    const cSet = (data.current_set !== undefined) ? Number(data.current_set) : Number(data.current ?? val);
+                    const cMeas = (data.current_measured !== undefined) ? Number(data.current_measured) : 0;
+                    logMessage(`Cài đặt dòng điện thành công! Máy xác nhận: ${cSet.toFixed(3)} A (Đo thực tế: ${cMeas.toFixed(3)} A)`, "success");
+                    document.getElementById("dispSetCurrent").innerText = `${cSet.toFixed(2)} A`;
+                    document.getElementById("dispCurrent").innerText = cMeas.toFixed(3);
+                    setTimeout(() => fetchTelemetry(false), 200);
                 } else {
-                    throw new Error(data.detail);
+                    throw new Error(data.detail || "Lỗi cài đặt");
                 }
             } catch (err) {
-                logMessage(`Lỗi đặt dòng điện: ${err.message}`, true);
+                logMessage(`Lỗi đặt dòng điện: ${err.message}`, "error");
             }
         }
 
-        async function controlOutput(state) {
+        function setCurrentPreset(val) {
+            document.getElementById("currentInput").value = val;
+            submitCurrent();
+        }
+
+        // Điều khiển Ngõ ra (ON/OFF)
+        async function submitOutput(state) {
             try {
-                logMessage(`Đang chuyển trạng thái ngõ ra: ${state}...`);
-                let res = await fetch(`${API_BASE}/output`, {
+                logMessage(`Đang chuyển trạng thái ngõ ra sang ${state}...`);
+                const res = await fetch(`${API_BASE}/output`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ state: state })
                 });
-                let data = await res.json();
+                const data = await res.json();
                 if (res.ok) {
-                    logMessage(`Ngõ ra đã được: ${data.output}`);
+                    const vMeas = (data.voltage_measured !== undefined) ? Number(data.voltage_measured) : 0;
+                    const cMeas = (data.current_measured !== undefined) ? Number(data.current_measured) : 0;
+                    logMessage(`Trạng thái ngõ ra: ${data.output} (Điện áp: ${vMeas.toFixed(3)} V | Dòng: ${cMeas.toFixed(3)} A)`, "success");
+                    updateOutputUI(data.output);
+                    setTimeout(() => fetchTelemetry(false), 200);
                 } else {
-                    throw new Error(data.detail);
+                    throw new Error(data.detail || "Lỗi điều khiển ngõ ra");
                 }
             } catch (err) {
-                logMessage(`Lỗi điều khiển ngõ ra: ${err.message}`, true);
+                logMessage(`Lỗi chuyển ngõ ra: ${err.message}`, "error");
             }
         }
+
+        // Dừng Khẩn Cấp (Emergency Stop)
+        async function submitEmergencyStop() {
+            try {
+                logMessage("⚠️ ĐANG GỬI LỆNH DỪNG KHẨN CẤP (EMERGENCY STOP)...", "warn");
+                const res = await fetch(`${API_BASE}/emergency-stop`, {
+                    method: "POST"
+                });
+                const data = await res.json();
+                if (res.ok) {
+                    logMessage(`Đã dừng khẩn cấp: ${data.message}`, "success");
+                    updateOutputUI("OFF");
+                    setTimeout(() => fetchTelemetry(false), 100);
+                } else {
+                    throw new Error(data.detail || "Lỗi dừng khẩn cấp");
+                }
+            } catch (err) {
+                logMessage(`LỖI DỪNG KHẨN CẤP: ${err.message}`, "error");
+            }
+        }
+
+        // Quản lý Polling Tự động
+        function toggleAutoPoll(enable) {
+            if (enable) {
+                if (!autoPollTimer) {
+                    autoPollTimer = setInterval(() => fetchTelemetry(false), 1000);
+                    logMessage("Đã bật tự động đọc thông số (1s/lần).");
+                }
+            } else {
+                if (autoPollTimer) {
+                    clearInterval(autoPollTimer);
+                    autoPollTimer = null;
+                    logMessage("Đã tạm dừng tự động đọc thông số.");
+                }
+            }
+        }
+
+        // Khởi động khi tải trang
+        window.addEventListener("DOMContentLoaded", () => {
+            checkDeviceConnection();
+            toggleAutoPoll(true);
+        });
     </script>
 </body>
 </html>

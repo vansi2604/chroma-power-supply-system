@@ -1,13 +1,13 @@
 # Web-based Power Supply Control System
 
-Hệ thống điều khiển và giám sát máy nguồn một chiều **Chroma 62050P** thông qua giao diện Web cục bộ, sử dụng FastAPI (Backend) và Vanilla JS/HTML5 (Frontend) kết nối qua thư viện PyVISA.
+Hệ thống điều khiển và giám sát máy nguồn một chiều **Chroma 62050P-100-100** thông qua giao diện Web cục bộ, sử dụng FastAPI (Backend) và Vanilla JS/HTML5 (Frontend) kết nối qua thư viện PyVISA.
 
 ---
 
 ## 1. Yêu cầu hệ thống
 * **Hệ điều hành:** Windows (khuyên dùng để tương thích tốt nhất với Driver NI-VISA) hoặc Linux.
-* **Python:** Phiên bản 3.9 trở lên (đã kiểm tra trên Python 3.12).
-* **Phần cứng:** Máy nguồn Chroma 62050P (ví dụ: Chroma 62050P-100-100) kết nối qua cổng USB (hoặc RS232/GPIB).
+* **Python:** Phiên bản 3.9 trở lên (đã kiểm tra trên Python 3.12 / 3.14).
+* **Phần cứng:** Máy nguồn Chroma 62050P-100-100 kết nối qua cổng USB (hoặc RS232/GPIB).
 * **Driver:** Đã cài đặt **NI-VISA** (hoặc Keysight IO Libraries Suite) để hệ thống nhận diện giao thức USB-TMC.
 
 ---
@@ -92,11 +92,19 @@ Thông tin thiết bị trả về thường có định dạng dạng:
 ### 1. Khởi động Backend (FastAPI API Server)
 Tại thư mục `backend`, đảm bảo môi trường ảo đã được kích hoạt:
 ```bash
-uvicorn main:app --reload --host 127.0.0.1 --port 8000
+uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 - Server API sẽ chạy tại: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 - Tài liệu kiểm thử API tương tác (Swagger UI): [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 - Tài liệu API ReDoc: [http://127.0.0.1:8000/redoc](http://127.0.0.1:8000/redoc)
+
+#### Các API Endpoints chính:
+- `GET /api/idn`: Nhận diện thiết bị phần cứng (*IDN?).
+- `GET /api/telemetry`: Đọc đo lường thời gian thực (Volt thực tế, Amp thực tế, Watt tức thời, trạng thái Output).
+- `POST /api/voltage`: Cài đặt điện áp ngõ ra (0V - 100V).
+- `POST /api/current`: Cài đặt giới hạn dòng điện (0A - 100A).
+- `POST /api/output`: Bật/Tắt ngõ ra (`ON` / `OFF`).
+- `POST /api/emergency-stop`: Dừng khẩn cấp ngắt ngõ ra ngay lập tức và xóa lỗi (*CLS).
 
 ### 2. Khởi động Frontend (Giao diện Web)
 Có thể mở giao diện bằng một trong các cách sau:
